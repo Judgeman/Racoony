@@ -28,9 +28,10 @@ Länger gedrückt halten springt höher, und wer rennt, springt weiter.
 - **Dächer:** Racoony läuft die Dachschrägen hinauf und hinunter. Schornsteine und Gauben sind feste Blöcke, gegen die man stößt oder auf die man springt.
 - **Garagen und Gartenhäuschen** stehen in manchen breiten Gärten und dienen als Zwischenstufe.
 - **Trampoline** in den Gärten schleudern dich zurück aufs Dach.
+- **Ratten und Tauben** sind die Gegner auf den Dächern. Ratten laufen auf dem Dach hin und her, auch die Schrägen hinauf. Tauben sitzen pickend auf dem Dach oder einem Schornstein und flattern auf, wenn du näher kommst; dann schweben sie auf Kopfhöhe. Spring ihnen auf den Kopf: Das gibt Punkte (Ratte 15, Taube 25) und Schwung nach oben, mit gehaltener Sprungtaste noch mehr. Wer sie anders berührt, fliegt vom Dach.
 - **Nachbarn mit Taschenlampe:** Ab etwa 300 m steht hin und wieder ein Nachbar im Bademantel im Garten und leuchtet die Dächer ab. Solange du im Licht stehst, füllt sich die Anzeige „Entdeckt“. Ist sie voll, bist du erwischt.
-- **Verlieren** kannst du auf zwei Arten: durch einen Sturz in einen Garten (je nachdem, wo du landest, im Gartenteich, in der Regentonne oder beim Nachbarshund) oder wenn dich ein Nachbar erwischt. Danach gibt es einen Steckbrief mit deiner Beute.
-- Je weiter du kommst, desto breiter werden die Gärten und desto mehr Schornsteine, Gauben und Nachbarn gibt es.
+- **Verlieren** kannst du auf drei Arten: durch einen Sturz in einen Garten (je nachdem, wo du landest, im Gartenteich, in der Regentonne oder beim Nachbarshund), durch eine Ratte oder Taube, die dich vom Dach schubst, oder wenn dich ein Nachbar erwischt. Danach gibt es einen Steckbrief mit deiner Beute und den erledigten Gegnern.
+- Je weiter du kommst, desto breiter werden die Gärten und desto mehr Schornsteine, Gauben, Ratten, Tauben und Nachbarn gibt es. Tauben tauchen ab etwa 120 m auf.
 - Deine Bestleistung speichert der Browser lokal (`localStorage`).
 
 ## Technik

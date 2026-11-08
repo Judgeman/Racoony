@@ -276,6 +276,11 @@ kbd {
         <dd>Trampoline in den Gärten schleudern dich zurück aufs Dach. Wer daneben landet, landet im Garten, und das war's.</dd>
         <dt><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M9 13L21 1L22 7Z" fill="rgba(255,236,190,.55)"/><circle cx="6" cy="9" r="2.6" fill="#c9a487"/><path d="M2.5 21L3.5 12.5H8.5L9.5 21Z" fill="#6f86a8"/><path d="M3.5 8L8.5 8L1.5 4Z" fill="#b84a4a"/></svg></dt>
         <dd>Nachbarn mit Taschenlampe: Warte, bis der Lichtkegel wegschwenkt. Wer zu lange im Licht steht, wird erwischt.</dd>
+        <dt>
+          <svg viewBox="0 0 22 22" aria-hidden="true"><path d="M4 15Q0 14 1.5 9" stroke="#c09590" stroke-width="1.3" fill="none" stroke-linecap="round"/><ellipse cx="9" cy="14" rx="6.5" ry="3.8" fill="#8a7d73"/><path d="M13 10.5Q21 13 20.5 15Q16 17.5 13 16Z" fill="#8a7d73"/><circle cx="13.5" cy="10.8" r="2" fill="#b39ea4"/><circle cx="16.3" cy="13.2" r="0.9" fill="#111"/><circle cx="20.4" cy="15" r="0.9" fill="#e09aa2"/></svg>
+          <svg viewBox="0 0 22 22" aria-hidden="true"><path d="M5 12L1 15L5 15Z" fill="#5f6776"/><ellipse cx="10" cy="13" rx="6.5" ry="4.4" fill="#8b95a6"/><circle cx="14.2" cy="11.6" r="2.4" fill="#5f8a78"/><circle cx="15.3" cy="8.8" r="2.8" fill="#8b95a6"/><path d="M17.8 8.6L20.6 9.5L17.8 10.4Z" fill="#2b2b2b"/><circle cx="16" cy="8.3" r="0.8" fill="#ff9f40"/><path d="M9 17.3V20M11.5 17.3V20" stroke="#c4544a" stroke-width="1.3"/></svg>
+        </dt>
+        <dd>Ratten und Tauben: Spring ihnen auf den Kopf, das gibt Punkte und Schwung. Wer sie anders berührt, fliegt vom Dach.</dd>
         <dt><kbd>Esc</kbd><kbd>M</kbd></dt>
         <dd>Pause, Ton an oder aus</dd>
       </dl>
@@ -312,6 +317,7 @@ kbd {
         <div class="poster-rule" aria-hidden="true"></div>
         <p class="poster-line" id="over-seen">Zuletzt gesehen über den Dächern.</p>
         <p class="poster-line" id="over-loot">Gestohlen: nichts.</p>
+        <p class="poster-line" id="over-foes" hidden></p>
         <div class="poster-reward"><span>Belohnung</span><strong id="over-points">0</strong><span>Punkte</span></div>
         <span class="stamp" id="over-stamp" hidden>Rekord</span>
       </article>
@@ -375,7 +381,7 @@ kbd {
   const btnPause = $('btn-pause'), btnMute = $('btn-mute');
   const titleBest = $('title-best'), portraitTip = $('portrait-tip');
   const overSeen = $('over-seen'), overLoot = $('over-loot'), overPoints = $('over-points');
-  const overBest = $('over-best'), overStamp = $('over-stamp');
+  const overBest = $('over-best'), overStamp = $('over-stamp'), overFoes = $('over-foes');
 
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const coarse = matchMedia('(pointer: coarse)').matches;
@@ -415,6 +421,8 @@ kbd {
     dryer: 'verheddert in einer Wäschespinne'
   };
   const DOG_TEXT = 'im Garten, vom Nachbarshund gestellt';
+  const FOE_PTS = { rat: 15, pigeon: 25 };
+  const FOE_TEXT = { rat: 'auf der Flucht vor einer Dachratte', pigeon: 'beim Sturz vom Dach, geschubst von einer Taube' };
   const CAUGHT = 'im Taschenlampenlicht eines Nachbarn im Bademantel';
   const BEST_KEY = 'racoony-best', MUTE_KEY = 'racoony-muted';
   const OLD_BEST_KEY = 'dachdieb-best', OLD_MUTE_KEY = 'dachdieb-muted';
@@ -438,6 +446,7 @@ kbd {
   const r = { x: START_X, y: 400, vy: 0, vx: 0, face: 1, maxX: START_X, onGround: true, plat: null, airJumps: 1, coyote: 0, buffer: 0, cut: false, run: 0, land: 0 };
   // plats: everything you can stand on (roofs, garages, sheds, chimneys, dormers); the other lists are for drawing
   let plats = [], houses = [], smalls = [], obs = [], gardens = [], tramps = [], loot = [], lights = [], parts = [], smoke = [], stars = [];
+  let foes = [], popups = [], foeCount = { rat: 0, pigeon: 0 };
   let lastHouse = null, genX = 0, nextLightX = 0, pruneT = 0;
   let lootValue = 0, lootItems = 0, lootCount = { coin: 0, sausage: 0, gnome: 0 };
   let detect = 0, inBeam = false, beepT = 0, dieT = 0, overAt = 0, deathCause = 'garden', deathText = '', hintT = 0, shake = 0;
@@ -561,6 +570,7 @@ kbd {
         if (Math.random() < 0.5) addLoot('coin', cx, small.ridge - 40);
       } else if (!attract && Math.random() < 0.3) addLoot('gnome', (small.x0 + small.x1) / 2, small.y - 16);
       else coinsAlong(small, small.x0 + 20, small.x1 - 20, 3);
+      if (small.kind === 'garage' && !attract && Math.random() < lerp(0.2, 0.4, k)) foes.push(makeRat(small, small.minX + 8, small.maxX - 8, k));
     }
     if (prev) fillGarden(prev, h, type, gap, small, k);
     decorateHouse(h, k, !prev);
@@ -627,6 +637,79 @@ kbd {
     if (!attract && Math.random() < 0.05) addLoot('gnome', xm + rnd(-40, 40), h.ridge - 135);
     if (Math.random() < 0.45) h.decor.push({ kind: 'antenna', x: xm + rnd(-h.rh, h.rh) + rnd(-6, 6), hgt: rnd(28, 40) });
     if (Math.random() < 0.3) h.decor.push({ kind: 'dish', x: h.x0 + (h.x1 - h.x0) * rnd(0.15, 0.85), y: h.eave + 18 });
+    spawnFoes(h, used, k, first);
+  }
+
+  function makeRat(pl, a, b, k) {
+    return { kind: 'rat', plat: pl, a, b, x: rnd(a, b), y: surfAt(pl, (a + b) / 2, 0), ang: 0, dir: Math.random() < 0.5 ? -1 : 1, speed: lerp(60, 115, k) * rnd(0.85, 1.15), w: 28, h: 14, dead: 0, ph: rnd(0, TAU) };
+  }
+
+  // Rats patrol a free stretch of roof between chimneys and dormers; pigeons sit on the roof or on a chimney.
+  function spawnFoes(h, used, k, first) {
+    if (attract) return;
+    const lo = first ? START_X + 320 : h.minX + 24, hi = h.maxX - 24;
+    const blocks = used.map(([a, b]) => [a - 10, b + 10]).sort((p, q) => p[0] - q[0]);
+    const spans = [];
+    let cur = lo;
+    for (const [a, b] of blocks) { if (a > cur) spans.push([cur, Math.min(a, hi)]); cur = Math.max(cur, b); }
+    if (cur < hi) spans.push([cur, hi]);
+    const good = spans.filter(([a, b]) => b - a >= 90);
+    if (!good.length) return;
+    let ratSpan = null;
+    if (Math.random() < lerp(0.3, 0.65, k)) { ratSpan = pick(good); foes.push(makeRat(h, ratSpan[0], ratSpan[1], k)); }
+    if (h.x0 > START_X + 120 * U_PER_M && Math.random() < lerp(0.2, 0.45, k)) {
+      const chims = obs.filter((o) => o.house === h && o.kind === 'chimney');
+      let hx, hy;
+      if (chims.length && Math.random() < 0.35) { const o = pick(chims); hx = o.x + o.w / 2; hy = o.top; }
+      else {
+        const others = good.filter((sp) => sp !== ratSpan);
+        const [a, b] = pick(others.length ? others : good);
+        hx = rnd(a + 20, b - 20); hy = surfAt(h, hx, 0);
+        if (hy === null) return;
+      }
+      foes.push({ kind: 'pigeon', homeX: hx, homeY: hy, x: hx, y: hy, face: Math.random() < 0.5 ? -1 : 1, dirFly: 1, state: 'sit', t: rnd(0, 3), w: 26, h: 19, dead: 0, ph: rnd(0, TAU) });
+    }
+  }
+
+  function updateFoes(dt) {
+    for (const e of foes) {
+      if (e.dead) { e.dead += dt; continue; }
+      if (e.kind === 'rat') {
+        e.x += e.dir * e.speed * dt;
+        if (e.x < e.a) { e.x = e.a; e.dir = 1; } else if (e.x > e.b) { e.x = e.b; e.dir = -1; }
+        const s = surfAt(e.plat, e.x, 0), s1 = surfAt(e.plat, e.x - 4, 0), s2 = surfAt(e.plat, e.x + 4, 0);
+        if (s !== null) e.y = s;
+        if (s1 !== null && s2 !== null) e.ang = Math.atan2(s2 - s1, 8);
+        e.ph += dt * e.speed * 0.14;
+      } else {
+        e.t += dt;
+        if (e.state === 'sit') {
+          if (state === 'play' && Math.abs(r.x - e.homeX) < 170) { e.state = 'fly'; e.t = 0; sndFlap(); }
+        } else {
+          const rise = Math.min(1, e.t * 2.5);
+          e.x = e.homeX + Math.sin(e.t * 1.7) * 42 * rise;
+          e.y = e.homeY - (40 + Math.sin(e.t * 3.2) * 18) * rise;
+          e.dirFly = Math.cos(e.t * 1.7) >= 0 ? 1 : -1;
+        }
+      }
+    }
+    if (popups.length) {
+      for (const p of popups) { p.life -= dt; p.y -= 32 * dt; }
+      popups = popups.filter((p) => p.life > 0);
+    }
+  }
+
+  // Landing on a foe from above defeats it and bounces Racoony up; holding jump bounces higher.
+  function stomp(e) {
+    e.dead = 0.001;
+    const pts = FOE_PTS[e.kind];
+    lootValue += pts; foeCount[e.kind]++;
+    popups.push({ x: e.x, y: e.y - e.h - 12, text: '+' + pts, life: 0.9 });
+    r.vy = jumpHeld() ? -780 : -520;
+    r.onGround = false; r.plat = null; r.airJumps = 1; r.cut = true; r.coyote = 0;
+    if (e.kind === 'pigeon') burst(e.x, e.y - 8, '214,218,228', reduceMotion ? 5 : 14, 120, 120, false);
+    else burst(e.x, e.y - 4, '150,140,130', reduceMotion ? 3 : 8, 90, 0, true);
+    sndStomp(e.kind);
   }
 
   function fillGarden(prev, h, type, gap, small, k) {
@@ -686,11 +769,13 @@ kbd {
     tramps = tramps.filter((t) => t.x1 > left);
     loot = loot.filter((l) => !l.got && l.x > left);
     lights = lights.filter((L) => L.fx > left - 800);
+    foes = foes.filter((e) => e.x > left && !(e.dead > 0.6));
   }
 
   function resetWorld(isAttract) {
     attract = isAttract;
     plats = []; houses = []; smalls = []; obs = []; gardens = []; tramps = []; loot = []; lights = []; parts = []; smoke = [];
+    foes = []; popups = []; foeCount = { rat: 0, pigeon: 0 };
     lastHouse = null; genX = START_X - 330; nextLightX = START_X + 300 * U_PER_M; pruneT = 0;
     now = 0; detect = 0; inBeam = false; lootValue = 0; lootItems = 0; lootCount = { coin: 0, sausage: 0, gnome: 0 };
     scrollX = START_X - rSX;
@@ -853,6 +938,7 @@ kbd {
     const minX = scrollX + RW / 2 + 2;
     if (r.x < minX) { r.x = minX; if (r.vx < 0) r.vx = 0; }
 
+    const yBefore = r.y, vyBefore = r.vy;
     if (r.onGround) {
       let s = r.plat ? surfAt(r.plat, r.x, EDGE_TOL) : null;
       if (s === null) {
@@ -900,6 +986,15 @@ kbd {
       return;
     }
     if (attract) return;
+
+    for (const e of foes) {
+      if (e.dead) continue;
+      const top = e.y - e.h;
+      if (r.x + RW / 2 < e.x - e.w / 2 || r.x - RW / 2 > e.x + e.w / 2 || r.y < top || r.y - RH > e.y) continue;
+      if ((vyBefore > 0 || r.vy > 0) && (yBefore <= top + 8 || r.y <= e.y - e.h * 0.45)) { stomp(e); break; }
+      die(e.kind);
+      return;
+    }
 
     for (const l of loot) {
       if (l.got) continue;
@@ -968,9 +1063,13 @@ kbd {
     clearInput();
     setTouchUI();
     stopMusic();
-    r.vx = 0; r.vy = 0;
-    if (cause === 'caught') { deathText = CAUGHT; sndWhistle(); }
-    else {
+    if (cause === 'caught') { r.vx = 0; r.vy = 0; deathText = CAUGHT; sndWhistle(); }
+    else if (cause === 'rat' || cause === 'pigeon') {
+      deathText = FOE_TEXT[cause];
+      r.vx = -r.face * 150; r.vy = -480;
+      sndHurt(cause);
+    } else {
+      r.vx = 0; r.vy = 0;
       const gc = gardenCause(r.x);
       deathText = gc.text;
       sndThud();
@@ -983,10 +1082,13 @@ kbd {
   function updateDying(dt) {
     dieT += dt;
     if (deathCause !== 'caught' && r.y < GROUND_Y) {
+      r.x += r.vx * dt;
       r.vy = Math.min(r.vy + GRAV * dt, MAX_FALL);
       r.y = Math.min(GROUND_Y, r.y + r.vy * dt);
+      if (r.y >= GROUND_Y) { r.vx = 0; sndThud(); burst(r.x, r.y, '120,150,120', reduceMotion ? 4 : 8, 110, 300, true); }
     }
-    if (state === 'dying' && dieT > (deathCause === 'caught' ? 1.3 : 1.1)) showOver();
+    const grounded = deathCause === 'caught' || r.y >= GROUND_Y;
+    if (state === 'dying' && ((grounded && dieT > (deathCause === 'caught' ? 1.3 : 1.1)) || dieT > 3)) showOver();
   }
 
   const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
@@ -1003,6 +1105,11 @@ kbd {
     if (lootCount.gnome) stolen.push(plural(lootCount.gnome, 'Gartenzwerg', 'Gartenzwerge'));
     overSeen.textContent = 'Zuletzt gesehen ' + deathText + ', nach ' + fmt(m) + ' m über den Dächern.';
     overLoot.textContent = 'Gestohlen: ' + (stolen.length ? stolen.join(', ') + '.' : 'nichts. Peinlich.');
+    const beaten = [];
+    if (foeCount.rat) beaten.push(plural(foeCount.rat, 'Ratte', 'Ratten'));
+    if (foeCount.pigeon) beaten.push(plural(foeCount.pigeon, 'Taube', 'Tauben'));
+    overFoes.textContent = 'Erledigt: ' + beaten.join(', ') + '.';
+    overFoes.hidden = !beaten.length;
     overPoints.textContent = fmt(pts);
     overStamp.hidden = !(isBest && pts > 0);
     overBest.textContent = isBest && pts > 0 ? 'Neue Bestleistung!' : 'Bestleistung: ' + fmt(best) + ' Punkte';
@@ -1061,6 +1168,7 @@ kbd {
     }
 
     for (const t of tramps) t.wob *= Math.exp(-dt * 3);
+    updateFoes(dt);
 
     for (const o of obs) {
       if (o.kind !== 'chimney' || o.x > scrollX + viewW + 40 || o.x + o.w < scrollX - 200) continue;
@@ -1512,6 +1620,95 @@ kbd {
     }
   }
 
+  // Rat seen from the side, feet at the origin, tilted to the roof slope; flattened once stomped.
+  function drawRat(e) {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.ang);
+    ctx.scale(e.dir, e.dead ? 0.3 : 1);
+    if (e.dead) ctx.globalAlpha = clamp(1 - e.dead / 0.6, 0, 1);
+    const step = e.dead ? 0 : Math.sin(e.ph);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#b08580'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-12, -5); ctx.quadraticCurveTo(-24, -2 + step * 2, -30, -9 - step); ctx.stroke();
+    ctx.strokeStyle = '#3b332d'; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(-6, -3); ctx.lineTo(-6 + step * 3, 0); ctx.moveTo(6, -3); ctx.lineTo(6 - step * 3, 0); ctx.stroke();
+    ctx.fillStyle = '#5d544c';
+    ctx.beginPath(); ctx.ellipse(-1, -7, 13, 6.5, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(' + C.rim + ',0.4)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(8, -11.5); ctx.quadraticCurveTo(19, -7.5, 18.5, -4); ctx.quadraticCurveTo(12, -1, 6, -3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d88f97'; blob(18.6, -4.6, 1.4);
+    ctx.fillStyle = '#7a6d63'; blob(9, -11.5, 3.2);
+    ctx.fillStyle = '#c99198'; blob(9, -11.5, 1.7);
+    ctx.fillStyle = '#0b0b0b'; blob(13.2, -8, 1.3);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)'; blob(13.6, -8.4, 0.45);
+    ctx.strokeStyle = 'rgba(220,220,220,0.5)'; ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.moveTo(17, -5); ctx.lineTo(22.5, -7); ctx.moveTo(17, -4.5); ctx.lineTo(22.5, -3.5); ctx.stroke();
+    ctx.restore();
+  }
+
+  // Pigeon pecking on the roof, or hovering with flapping wings once Racoony gets close.
+  function drawPigeon(e) {
+    const flying = e.state === 'fly';
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.scale((flying ? e.dirFly : e.face) * 1.2, 1.2);
+    ctx.lineCap = 'round';
+    if (!flying) {
+      const peck = Math.pow(Math.max(0, Math.sin(e.t * 2.4 + e.ph)), 6);
+      ctx.strokeStyle = '#c4544a'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(-2, -4); ctx.lineTo(-3, 0); ctx.moveTo(2, -4); ctx.lineTo(3, 0); ctx.stroke();
+      ctx.fillStyle = '#4f5766';
+      ctx.beginPath(); ctx.moveTo(-7, -9); ctx.lineTo(-15, -6); ctx.lineTo(-7, -5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#7d8798'; ctx.beginPath(); ctx.ellipse(0, -8, 9, 6, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(' + C.rim + ',0.45)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = '#646d7d'; ctx.beginPath(); ctx.ellipse(-2, -8.5, 6.5, 3.8, 0.1, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#2e333d'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(-5, -9); ctx.lineTo(-2, -7); ctx.moveTo(-2, -10); ctx.lineTo(1, -8); ctx.stroke();
+      ctx.translate(6, -12 + peck * 6);
+      ctx.rotate(peck * 0.9);
+    } else {
+      const f = Math.sin(e.t * 22);
+      ctx.translate(0, -8);
+      ctx.fillStyle = '#596170';
+      ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(2, -2 - 13 * f); ctx.lineTo(6, -1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#4f5766';
+      ctx.beginPath(); ctx.moveTo(-9, -1); ctx.lineTo(-16, 1); ctx.lineTo(-9, 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#7d8798'; ctx.beginPath(); ctx.ellipse(0, 0, 10, 5.5, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(' + C.rim + ',0.45)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = '#6a7384';
+      ctx.beginPath(); ctx.moveTo(-4, -1); ctx.lineTo(0, -1 - 15 * f); ctx.lineTo(5, 0); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#c4544a'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(-2, 4); ctx.lineTo(-5, 6); ctx.stroke();
+      ctx.translate(8, -4);
+    }
+    ctx.fillStyle = '#5f8a78'; blob(-0.5, 2.4, 3.6);
+    ctx.fillStyle = '#7d8798'; blob(0.5, 0, 3.4);
+    ctx.fillStyle = '#ff9f40'; blob(1.6, -0.7, 0.9);
+    ctx.fillStyle = '#2b2b2b';
+    ctx.beginPath(); ctx.moveTo(3.4, -0.2); ctx.lineTo(6.4, 0.7); ctx.lineTo(3.4, 1.4); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawFoes() {
+    for (const e of foes) {
+      if (e.x < scrollX - 40 || e.x > scrollX + viewW + 40) continue;
+      if (e.kind === 'rat') drawRat(e);
+      else if (!e.dead) drawPigeon(e);
+    }
+  }
+
+  function drawPopups() {
+    if (!popups.length) return;
+    ctx.font = '15px Bungee, "Arial Black", sans-serif';
+    ctx.textAlign = 'center';
+    for (const p of popups) {
+      ctx.fillStyle = 'rgba(' + C.gold + ',' + clamp(p.life * 1.6, 0, 1).toFixed(3) + ')';
+      ctx.fillText(p.text, p.x, p.y);
+    }
+    ctx.textAlign = 'start';
+  }
+
   // Upright raccoon, drawn facing right with the feet at the origin; r.face mirrors it.
   function drawRaccoon() {
     const air = !r.onGround, moving = Math.abs(r.vx) > 12;
@@ -1650,10 +1847,12 @@ kbd {
     drawNeighbors();
     drawBeams();
     drawLoot();
+    drawFoes();
     drawRaccoon();
     ctx.globalCompositeOperation = 'lighter';
     drawParticles();
     ctx.globalCompositeOperation = 'source-over';
+    drawPopups();
   }
 
   // ---------- Audio ----------
@@ -1717,6 +1916,20 @@ kbd {
     for (const d of [0, 0.24]) { tone('sawtooth', 430, 250, t + d, 0.13, 0.08, 0.8); noise(t + d, 0.1, 'bandpass', 900, 0.12); }
   }
   function sndSplash() { if (!audioReady()) return; const t = T(); noise(t, 0.45, 'bandpass', 1200, 0.22); noise(t + 0.05, 0.3, 'highpass', 3000, 0.06); }
+  function sndFlap() { if (!audioReady()) return; const t = T(); for (let i = 0; i < 4; i++) noise(t + i * 0.06, 0.04, 'bandpass', 800, 0.06); }
+  function sndStomp(kind) {
+    if (!audioReady()) return;
+    const t = T();
+    noise(t, 0.07, 'lowpass', 600, 0.16);
+    if (kind === 'rat') { tone('sine', 1700, 1100, t, 0.09, 0.08); tone('sine', 1500, 950, t + 0.08, 0.08, 0.05); }
+    else { for (let i = 0; i < 3; i++) noise(t + i * 0.05, 0.04, 'bandpass', 900, 0.08); tone('triangle', 320, 200, t + 0.05, 0.2, 0.07); }
+  }
+  function sndHurt(kind) {
+    if (!audioReady()) return;
+    const t = T();
+    if (kind === 'rat') tone('sine', 2000, 1300, t, 0.12, 0.09); else sndFlap();
+    tone('sine', 900, 180, t + 0.1, 0.7, 0.08, 1);
+  }
   function startDrone() {
     if (!actx || droneOn) return;
     droneOn = true;
