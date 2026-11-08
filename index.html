@@ -441,13 +441,14 @@ kbd {
   const fmt = (n) => n.toLocaleString('de-DE');
 
   // ---------- View & state ----------
-  let dpr = 1, scale = 1, viewW = MIN_VIEW_W, viewH = VIEW_H, offY = 0, rSX = 200;
+  let dpr = 1, scale = 1, viewW = MIN_VIEW_W, viewH = VIEW_H, offY = 0;
   let state = 'title', attract = true, now = 0, scrollX = 0;
   const r = { x: START_X, y: 400, vy: 0, vx: 0, face: 1, maxX: START_X, onGround: true, plat: null, airJumps: 1, coyote: 0, buffer: 0, cut: false, run: 0, land: 0 };
-  // plats: everything you can stand on (roofs, garages, sheds, chimneys, dormers); the other lists are for drawing
+  // plats: everything you can stand on (roofs, garages, sheds, chimneys); the other lists are for drawing
   let plats = [], houses = [], smalls = [], obs = [], gardens = [], tramps = [], loot = [], lights = [], parts = [], smoke = [], stars = [];
   let foes = [], popups = [], foeCount = { rat: 0, pigeon: 0 };
-  let lastHouse = null, genX = 0, nextLightX = 0, pruneT = 0;
+  let lastHouse = null, genX = 0, nextLightX = 0, pruneT = 0, worldLeft = 0;
+  const BACKTRACK = 8000;   // how far behind the furthest point the world is kept (400 m)
   let lootValue = 0, lootItems = 0, lootCount = { coin: 0, sausage: 0, gnome: 0 };
   let detect = 0, inBeam = false, beepT = 0, dieT = 0, overAt = 0, deathCause = 'garden', deathText = '', hintT = 0, shake = 0;
   let best = 0, muted = false;
@@ -462,9 +463,8 @@ kbd {
     canvas.height = Math.round(h * dpr);
     scale = Math.min(h / VIEW_H, w / MIN_VIEW_W);
     viewW = w / scale; viewH = h / scale; offY = (viewH - VIEW_H) / 2;
-    rSX = clamp(viewW * 0.18, 110, 240);
     stars = Array.from({ length: 90 }, () => ({ x: Math.random() * viewW, y: rnd(-offY, 360), s: rnd(0.6, 1.7), ph: rnd(0, TAU) }));
-    if (houses.length && (state === 'title' || state === 'play')) { scrollX = Math.max(scrollX, r.x - viewW * 0.42); ensureGenerated(); }
+    if (houses.length && (state === 'title' || state === 'play')) { scrollX = clamp(scrollX, r.x - viewW + 60, r.x - 60); ensureGenerated(); }
     portraitTip.hidden = !(coarse && h > w);
     touchTip.hidden = !coarse;
   }
@@ -601,17 +601,17 @@ kbd {
     const used = [];
     const free = (a, b) => used.every(([u0, u1]) => b < u0 - 70 || a > u1 + 70);
     const lo = first ? START_X + 260 : h.minX + 70, hi = h.maxX - 70;
-    const tryPlace = (kind, prob) => {
+    const addChimney = (prob) => {
       if (Math.random() > prob) return;
       for (let t = 0; t < 5; t++) {
-        const w = kind === 'chimney' ? rnd(22, 30) : rnd(46, 54);
+        const w = rnd(22, 30);
         const x = rnd(lo, hi - w);
         if (x < lo || !free(x, x + w)) continue;
         const sa = surfAt(h, x, 0), sb = surfAt(h, x + w, 0);
         if (sa === null || sb === null) continue;
-        const top = Math.min(sa, sb) - (kind === 'chimney' ? rnd(30, 48) : rnd(36, 44));
-        const o = flatPlat(kind, x, x + w, top, 0);
-        Object.assign(o, { house: h, x, w, top, smokeT: rnd(0, 0.3), lit: Math.random() < 0.35 });
+        const top = Math.min(sa, sb) - rnd(30, 48);
+        const o = flatPlat('chimney', x, x + w, top, 0);
+        Object.assign(o, { house: h, x, w, top, smokeT: rnd(0, 0.3) });
         plats.push(o); obs.push(o); used.push([x, x + w]);
         if (Math.random() < 0.5) {
           const cx = x + w / 2;
@@ -620,9 +620,8 @@ kbd {
         return;
       }
     };
-    tryPlace('chimney', attract ? 0.6 : lerp(0.5, 0.85, k));
-    tryPlace('dormer', attract ? 0.25 : lerp(0.15, 0.4, k));
-    tryPlace('chimney', attract ? 0 : lerp(0, 0.3, k));
+    addChimney(attract ? 0.6 : lerp(0.5, 0.85, k));
+    addChimney(attract ? 0.15 : lerp(0.1, 0.45, k));
     if (Math.random() < 0.6) {
       for (let t = 0; t < 4; t++) {
         const a = rnd(h.minX + 30, h.maxX - 150), b = a + rnd(100, 140);
@@ -644,7 +643,7 @@ kbd {
     return { kind: 'rat', plat: pl, a, b, x: rnd(a, b), y: surfAt(pl, (a + b) / 2, 0), ang: 0, dir: Math.random() < 0.5 ? -1 : 1, speed: lerp(60, 115, k) * rnd(0.85, 1.15), w: 28, h: 14, dead: 0, ph: rnd(0, TAU) };
   }
 
-  // Rats patrol a free stretch of roof between chimneys and dormers; pigeons sit on the roof or on a chimney.
+  // Rats patrol a free stretch of roof between chimneys; pigeons sit on the roof or on a chimney.
   function spawnFoes(h, used, k, first) {
     if (attract) return;
     const lo = first ? START_X + 320 : h.minX + 24, hi = h.maxX - 24;
@@ -760,7 +759,7 @@ kbd {
     pruneT -= dt;
     if (pruneT > 0) return;
     pruneT = 0.5;
-    const left = scrollX - 400;
+    const left = Math.min(r.maxX - BACKTRACK, scrollX - 600);
     plats = plats.filter((p) => p.maxX > left);
     houses = houses.filter((p) => p.maxX > left);
     smalls = smalls.filter((p) => p.maxX > left);
@@ -770,6 +769,15 @@ kbd {
     loot = loot.filter((l) => !l.got && l.x > left);
     lights = lights.filter((L) => L.fx > left - 800);
     foes = foes.filter((e) => e.x > left && !(e.dead > 0.6));
+    if (houses.length) worldLeft = houses[0].minX;
+  }
+
+  // The camera follows Racoony both ways and looks ahead in the direction he faces.
+  function followCamera(dt) {
+    const target = r.x - viewW * (r.face > 0 ? 0.36 : 0.64);
+    scrollX += (target - scrollX) * Math.min(1, dt * 3.5);
+    scrollX = clamp(scrollX, r.x - viewW + 60, r.x - 60);
+    scrollX = Math.max(scrollX, worldLeft - 40);
   }
 
   function resetWorld(isAttract) {
@@ -778,9 +786,11 @@ kbd {
     foes = []; popups = []; foeCount = { rat: 0, pigeon: 0 };
     lastHouse = null; genX = START_X - 330; nextLightX = START_X + 300 * U_PER_M; pruneT = 0;
     now = 0; detect = 0; inBeam = false; lootValue = 0; lootItems = 0; lootCount = { coin: 0, sausage: 0, gnome: 0 };
-    scrollX = START_X - rSX;
+    scrollX = START_X - viewW * 0.36;
     ensureGenerated();
     const h0 = houses[0];
+    worldLeft = h0.minX;
+    scrollX = Math.max(scrollX, worldLeft - 40);
     Object.assign(r, { x: START_X, y: surfAt(h0, START_X, 0), vy: 0, vx: 0, face: 1, maxX: START_X, onGround: true, plat: h0, airJumps: 1, coyote: 0, buffer: 0, cut: false, run: 0, land: 0 });
   }
 
@@ -794,7 +804,7 @@ kbd {
     if (hitSpeed > 200 && state === 'play') sndBump();
   }
 
-  // House walls, garages, chimneys and dormers are solid below their top edge.
+  // House walls, garages and chimneys are solid below their top edge.
   function resolveSolids(xPrev) {
     for (const pl of plats) {
       const s = pl.solid, l = r.x - RW / 2, rr = r.x + RW / 2;
@@ -935,7 +945,7 @@ kbd {
     r.x += r.vx * dt;
     resolveSolids(xPrev);
     resolveRoofs(xPrev);
-    const minX = scrollX + RW / 2 + 2;
+    const minX = worldLeft + RW / 2;
     if (r.x < minX) { r.x = minX; if (r.vx < 0) r.vx = 0; }
 
     const yBefore = r.y, vyBefore = r.vy;
@@ -1159,7 +1169,7 @@ kbd {
       updateRunner(dt);
       if (state === 'title' || state === 'play') {
         r.maxX = Math.max(r.maxX, r.x);
-        scrollX = Math.max(scrollX, r.x - viewW * 0.42);
+        followCamera(dt);
         ensureGenerated();
         prune(dt);
       }
@@ -1411,7 +1421,11 @@ kbd {
       const fl = 0.5 + 0.5 * Math.sin(now * 9 + w.x) * Math.sin(now * 2.3 + w.y);
       fill = 'rgba(' + C.tv + ',' + (0.35 + 0.4 * fl).toFixed(3) + ')';
     }
-    if (lit) { ctx.fillStyle = 'rgba(' + C.sodium + ',0.08)'; ctx.fillRect(w.x - 7, w.y - 7, w.w + 14, w.h + 14); }
+    if (lit) {
+      ctx.fillStyle = 'rgba(' + C.sodium + ',0.08)';
+      if (w.kind === 'round') blob(w.x + w.w / 2, w.y + w.h / 2, w.w / 2 + 7);
+      else ctx.fillRect(w.x - 7, w.y - 7, w.w + 14, w.h + 14);
+    }
     ctx.fillStyle = fill;
     if (w.kind === 'round') {
       blob(w.x + w.w / 2, w.y + w.h / 2, w.w / 2);
@@ -1496,32 +1510,22 @@ kbd {
   function drawObstacles() {
     for (const o of obs) {
       if (o.maxX < scrollX - 10 || o.minX > scrollX + viewW + 10) continue;
-      const h = o.house, st = HOUSE[h.style];
+      const h = o.house;
       const ya = surfAt(h, o.x, 0) + 3, yb = surfAt(h, o.x + o.w, 0) + 3;
-      if (o.kind === 'chimney') {
-        ctx.save();
-        ctx.beginPath(); ctx.moveTo(o.x, o.top + 6); ctx.lineTo(o.x + o.w, o.top + 6); ctx.lineTo(o.x + o.w, yb); ctx.lineTo(o.x, ya); ctx.closePath();
-        ctx.fillStyle = '#4d2f2c'; ctx.fill();
-        ctx.clip();
-        ctx.strokeStyle = 'rgba(20,10,10,0.45)'; ctx.lineWidth = 1;
-        ctx.beginPath();
-        for (let yy = o.top + 14, row = 0; yy < Math.max(ya, yb); yy += 8, row++) {
-          ctx.moveTo(o.x, yy); ctx.lineTo(o.x + o.w, yy);
-          for (let xx = o.x + (row % 2 ? 6 : 12); xx < o.x + o.w; xx += 12) { ctx.moveTo(xx, yy - 8); ctx.lineTo(xx, yy); }
-        }
-        ctx.stroke();
-        ctx.restore();
-        ctx.fillStyle = '#6a4a44'; ctx.fillRect(o.x - 3, o.top, o.w + 6, 6);
-        ctx.fillStyle = 'rgba(' + C.rim + ',0.55)'; ctx.fillRect(o.x - 3, o.top - 0.5, o.w + 6, 1.3);
-      } else {
-        ctx.beginPath(); ctx.moveTo(o.x, o.top + 7); ctx.lineTo(o.x + o.w, o.top + 7); ctx.lineTo(o.x + o.w, yb); ctx.lineTo(o.x, ya); ctx.closePath();
-        ctx.fillStyle = st.trim; ctx.fill();
-        const ww = o.w * 0.5, wx = o.x + (o.w - ww) / 2, wy = o.top + 13, wh = Math.max(8, Math.min(ya, yb) - wy - 6);
-        ctx.fillStyle = o.lit ? '#f2ac55' : st.dark; ctx.fillRect(wx, wy, ww, wh);
-        ctx.strokeStyle = st.wall; ctx.lineWidth = 1.4; ctx.strokeRect(wx, wy, ww, wh);
-        ctx.fillStyle = st.roof; ctx.fillRect(o.x - 4, o.top, o.w + 8, 8);
-        ctx.fillStyle = 'rgba(' + C.rim + ',0.55)'; ctx.fillRect(o.x - 4, o.top - 0.5, o.w + 8, 1.3);
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(o.x, o.top + 6); ctx.lineTo(o.x + o.w, o.top + 6); ctx.lineTo(o.x + o.w, yb); ctx.lineTo(o.x, ya); ctx.closePath();
+      ctx.fillStyle = '#4d2f2c'; ctx.fill();
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(20,10,10,0.45)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let yy = o.top + 14, row = 0; yy < Math.max(ya, yb); yy += 8, row++) {
+        ctx.moveTo(o.x, yy); ctx.lineTo(o.x + o.w, yy);
+        for (let xx = o.x + (row % 2 ? 6 : 12); xx < o.x + o.w; xx += 12) { ctx.moveTo(xx, yy - 8); ctx.lineTo(xx, yy); }
       }
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = '#6a4a44'; ctx.fillRect(o.x - 3, o.top, o.w + 6, 6);
+      ctx.fillStyle = 'rgba(' + C.rim + ',0.55)'; ctx.fillRect(o.x - 3, o.top - 0.5, o.w + 6, 1.3);
     }
   }
 
