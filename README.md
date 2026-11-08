@@ -1,6 +1,6 @@
 # Racoony
 
-Ein endloser Plattformer für den Browser. Du steuerst Racoony, einen diebischen Waschbären, nachts über die Dächer der Stadt. Spring über die Lücken zwischen den Häusern, stopf deinen Beutel mit Beute voll und lass dich nicht vom Suchscheinwerfer erwischen.
+Ein endloser Plattformer für den Browser. Du steuerst Racoony, einen diebischen Waschbären, nachts über die Dächer einer schlafenden Vorstadt. Lauf über Giebeldächer, spring über die Gärten zwischen den Häusern, stopf deinen Beutel voll und lass dich von keinem Nachbarn erwischen.
 
 ## Spielen
 
@@ -24,16 +24,18 @@ Länger gedrückt halten springt höher, und wer rennt, springt weiter.
 ## Regeln
 
 - **Punkte** = zurückgelegte Strecke in Metern plus der Wert der Beute.
-- **Beute:** Münze 5, Brezel 20, Ring 100 Punkte. Mit jedem Stück wird Racoonys Beutel dicker.
-- **Hindernisse:** Schornsteine, Klimaanlagen und Wassertanks sind feste Blöcke. Du kannst dagegen laufen oder draufspringen.
-- **Wäscheleinen** federn dich hoch, wenn du draufspringst. So schaffst du Lücken, die für einen normalen Sprung zu breit sind.
-- **Suchscheinwerfer:** Ab etwa 360 m schwenken Lichtkegel von der Straße hoch. Solange du im Licht stehst, füllt sich die Anzeige „Entdeckt“. Ist sie voll, bist du erwischt.
-- **Verlieren** kannst du auf zwei Arten: durch einen Sturz in eine Lücke oder wenn dich ein Suchscheinwerfer erwischt. Danach gibt es einen Steckbrief mit deiner Beute.
-- Je weiter du kommst, desto breiter werden die Lücken und desto mehr Hindernisse und Scheinwerfer gibt es.
+- **Beute:** Münze 5, Grillwurst 20, Gartenzwerg 100 Punkte. Mit jedem Stück wird Racoonys Beutel dicker.
+- **Dächer:** Racoony läuft die Dachschrägen hinauf und hinunter. Schornsteine und Gauben sind feste Blöcke, gegen die man stößt oder auf die man springt.
+- **Garagen und Gartenhäuschen** stehen in manchen breiten Gärten und dienen als Zwischenstufe.
+- **Trampoline** in den Gärten schleudern dich zurück aufs Dach.
+- **Nachbarn mit Taschenlampe:** Ab etwa 300 m steht hin und wieder ein Nachbar im Bademantel im Garten und leuchtet die Dächer ab. Solange du im Licht stehst, füllt sich die Anzeige „Entdeckt“. Ist sie voll, bist du erwischt.
+- **Verlieren** kannst du auf zwei Arten: durch einen Sturz in einen Garten (je nachdem, wo du landest, im Gartenteich, in der Regentonne oder beim Nachbarshund) oder wenn dich ein Nachbar erwischt. Danach gibt es einen Steckbrief mit deiner Beute.
+- Je weiter du kommst, desto breiter werden die Gärten und desto mehr Schornsteine, Gauben und Nachbarn gibt es.
 - Deine Bestleistung speichert der Browser lokal (`localStorage`).
 
 ## Technik
 
 - Eine einzige HTML-Datei: Canvas 2D für die Grafik, Web Audio für Geräusche und Musik.
-- Figuren, Stadt und Sound erzeugt das Spiel komplett im Code. Es gibt keine Bild- oder Audiodateien.
-- Die wichtigsten Stellschrauben stehen am Anfang des Skripts im Abschnitt `Tuning`: Schwerkraft, Sprungkraft, Lauf- und Renntempo und die Größe der Kollisionsbox.
+- Figuren, Häuser, Gärten und Sound erzeugt das Spiel komplett im Code. Es gibt keine Bild- oder Audiodateien.
+- Die Vorstadt entsteht beim Laufen zufällig. Die Abstände zwischen den Häusern werden aus der Sprungphysik berechnet, sodass jeder Garten im normalen Lauftempo zu schaffen ist, manche nur mit Doppelsprung, Trampolin oder über eine Garage.
+- Die wichtigsten Stellschrauben stehen am Anfang des Skripts im Abschnitt `Tuning`: Schwerkraft, Sprungkraft, Lauf- und Renntempo, Trampolin-Schwung und die Größe der Kollisionsbox.
